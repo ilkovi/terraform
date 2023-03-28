@@ -45,23 +45,38 @@ resource "aws_vpc" "vpc_demo" {
 
   tags = {
     resource_group 	= "rg_demo"
-    Name 		= "tf-example"
+    Name 		= "VPC Demo"
   }
 }
 
 
 
-# Create Subnet
+# Create Public Subnet
 resource "aws_subnet" "public_subnet" {
-  vpc_id            = aws_vpc.vpc_demo.id
-  cidr_block        = "${var.subnet_prefix}"
-#  availability_zone = "us-east-1b"
+  vpc_id            	= aws_vpc.vpc_demo.id
+  cidr_block        	= "${var.public_subnet_prefix}"
+#  availability_zone 	= "us-east-1b"
 
   tags = {
     resource_group      = "rg_demo"
-    Name 		= "tf-example"
+    Name 		= "PUBLIC net"
   }
 }
+
+
+
+# Create Private Subnet
+resource "aws_subnet" "private_subnet" {
+  vpc_id            	= aws_vpc.vpc_demo.id
+  cidr_block        	= "${var.private_subnet_prefix}"
+  availability_zone 	= "us-east-1a"
+
+  tags = {
+    resource_group      = "rg_demo"
+    Name 		= "PRIVATE net"
+  }
+}
+
 
 
 # Create Internet Gateway
@@ -71,13 +86,50 @@ resource "aws_internet_gateway" "gw" {
 
   tags = {
     resource_group      = "rg_demo"
-    Name 		= "tf-example"
+    Name 		= "IG Demo"
   }
 }
 
 
-# Create Routing Table
-resource "aws_route_table" "route_table" {
+
+
+# Create NAT Gateway and relate to Private subnet
+resource "aws_nat_gateway" "nat_gw" {
+  connectivity_type 	= "private"
+  subnet_id     	= aws_subnet.private_subnet.id
+
+  tags = {
+    resource_group      = "rg_demo"
+    Name 		= "NAT gw demo"
+  }
+
+  # To ensure proper ordering, it is recommended to add an explicit dependency
+  # on the Internet Gateway for the VPC.
+  depends_on 		= [aws_internet_gateway.gw]
+}
+
+
+
+
+# Create Private Route Table with NAT GW
+resource "aws_route_table" "private_route_table" {
+  vpc_id = "${aws_vpc.vpc_demo.id}"
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = "${aws_nat_gateway.nat_gw.id}"
+  }
+
+  tags = {
+    resource_group      = "rg_demo"
+    Name 		= "Private RT"
+  }
+}
+
+
+
+# Create Public Route Table with Route to IGW
+resource "aws_route_table" "public_route_table" {
   vpc_id = "${aws_vpc.vpc_demo.id}"
 
   route {
@@ -87,17 +139,24 @@ resource "aws_route_table" "route_table" {
 
   tags = {
     resource_group      = "rg_demo"
-    Name 		= "tf-example"
+    Name 		= "Public RT"
   }
 }
 
 
-# Assign the route table to the public Subnet
-resource "aws_route_table_association" "orch_subnet_rt" {
+# Assign the Public route table to the public Subnet
+resource "aws_route_table_association" "pub-pub-ass" {
   subnet_id      = "${aws_subnet.public_subnet.id}"
-  route_table_id = "${aws_route_table.route_table.id}"
+  route_table_id = "${aws_route_table.public_route_table.id}"
 }
 
+
+
+# Assign the Private route table to the Private Subnet
+resource "aws_route_table_association" "pri-pri-ass" {
+  subnet_id      = "${aws_subnet.private_subnet.id}"
+  route_table_id = "${aws_route_table.private_route_table.id}"
+}
 
 
 # Assign Key Pair to instance
@@ -105,6 +164,7 @@ resource "aws_key_pair" "default" {
   key_name   = "aws_key_pair"
   public_key = "${file("~/.ssh/id_rsa.pub")}"
 }
+
 
 
 
@@ -147,7 +207,7 @@ resource "aws_security_group" "demo_sec_group" {
 
   tags = {
     resource_group      = "rg_demo"
-    Name                = "tf-example"
+    Name                = "SG Demo"
   }
 
 }

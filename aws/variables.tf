@@ -8,7 +8,12 @@ variable "vpc_prefix" {
   description = "AWS prefix in CIDR format."
 }
 
-variable "subnet_prefix" {
+variable "public_subnet_prefix" {
   default     = "172.16.10.0/24"
+  description = "AWS Subnet prefix in CIDR format."
+}
+
+variable "private_subnet_prefix" {
+  default     = "172.16.16.0/24"
   description = "AWS Subnet prefix in CIDR format."
 }

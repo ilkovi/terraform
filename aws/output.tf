@@ -15,7 +15,7 @@ output "vpc_id" {
 }
 
 output "route_table_id" {
-  value = "${aws_route_table.route_table.id}"
+  value = "${aws_route_table.public_route_table.id}"
 }
 
 output "security_group_id" {
